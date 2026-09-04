@@ -69,14 +69,16 @@ function DiaryPage() {
     search.mutate(query.trim());
   };
 
-  const toggleSelection = (food: FoodItem) => {
-    setSelectedItems((prev) => {
-      const exists = prev.find((p) => p.food.id === food.id);
-      if (exists) {
-        return prev.filter((p) => p.food.id !== food.id);
-      }
-      return [...prev, { food, grams: "100" }];
-    });
+  const selectFood = (food: FoodItem) => {
+    setSelectedItems((prev) =>
+      prev.find((p) => p.food.id === food.id) ? prev : [...prev, { food, grams: "100" }]
+    );
+    setQuery("");
+    search.reset();
+  };
+
+  const removeSelected = (id: string) => {
+    setSelectedItems((prev) => prev.filter((p) => p.food.id !== id));
   };
 
   const updateGrams = (id: string, newGrams: string) => {
@@ -179,7 +181,7 @@ function DiaryPage() {
                 <li key={item.id}>
                   <button
                     type="button"
-                    onClick={() => toggleSelection(item)}
+                    onClick={() => selectFood(item)}
                     className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-secondary ${
                       isSelected ? "border-primary bg-secondary/50" : "border-border"
                     }`}
@@ -222,7 +224,7 @@ function DiaryPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => toggleSelection(food)}
+                    onClick={() => removeSelected(food.id)}
                     className="p-1.5 text-muted-foreground transition-colors hover:text-destructive shrink-0 mt-1"
                     aria-label={`Remover ${food.name}`}
                   >
