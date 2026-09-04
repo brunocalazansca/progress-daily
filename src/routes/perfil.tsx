@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { AppShell } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useNutritionData";
+import { useProfile, useUpdateProfile } from "@/hooks/useNutritionData";
 import {
   ACTIVITY_LABELS,
   buildNutritionPlan,
@@ -14,25 +13,18 @@ import {
   type BiologicalSex,
 } from "@/lib/nutrition";
 
-export const Route = createFileRoute("/onboarding")({
+export const Route = createFileRoute("/perfil")({
   head: () => ({
-    meta: [
-      { title: "Seus dados" },
-      { name: "description", content: "Informe peso, altura, idade, sexo e atividade física para calcular suas metas diárias." },
-      { property: "og:title", content: "Seus dados" },
-      { property: "og:description", content: "Calculamos sua TMB e a meta de emagrecimento com déficit de 500 kcal." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
+    meta: [{ title: "Meu perfil" }],
   }),
-  component: OnboardingPage,
+  component: ProfilePage,
 });
 
-function OnboardingPage() {
+function ProfilePage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { user, loading } = useAuth();
   const { data: profile } = useProfile(user?.id);
+  const updateProfile = useUpdateProfile(user?.id);
 
   const [weight, setWeight] = useState("");
   const [targetWeight, setTargetWeight] = useState("");
@@ -40,8 +32,7 @@ function OnboardingPage() {
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<BiologicalSex>("female");
   const [activity, setActivity] = useState<ActivityLevel>("light");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/" });
@@ -65,63 +56,44 @@ function OnboardingPage() {
     return buildNutritionPlan({ weightKg: w, heightCm: h, ageYears: a, sex, activityLevel: activity });
   }, [weight, height, age, sex, activity]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!user || !preview) return;
-    setSaving(true);
-    setError(null);
-
-    const { error: saveError } = await supabase.from("profiles").upsert({
-      id: user.id,
-      display_name: (user.user_metadata?.["full_name"] as string | undefined) ?? user.email ?? null,
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!preview) return;
+    await updateProfile.mutateAsync({
       weight_kg: Number(weight),
-      target_weight_kg: targetWeight ? Number(targetWeight) : null,
+      target_weight_kg: targetWeight ? Number(targetWeight) : undefined,
       height_cm: Number(height),
       age_years: Number(age),
       biological_sex: sex,
       activity_level: activity,
-      onboarded: true,
-      updated_at: new Date().toISOString(),
     });
-
-    if (saveError) {
-      setError("Não foi possível salvar seus dados. Tente novamente.");
-      setSaving(false);
-      return;
-    }
-
-    await queryClient.invalidateQueries({ queryKey: ["profile", user.id] });
-    void navigate({ to: "/dashboard" });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-md bg-background">
-      <header className="gradient-hero px-5 pb-10 pt-10 text-primary-foreground">
-        <h1 className="font-display text-2xl font-bold">Vamos calcular suas metas</h1>
-        <p className="mt-2 text-sm opacity-90">Leva menos de um minuto. Você pode ajustar depois.</p>
-      </header>
-
-      <form onSubmit={handleSubmit} className="-mt-6 space-y-4 rounded-t-3xl bg-background px-4 pb-12 pt-6">
+    <AppShell title="Meu perfil" subtitle="Atualize seus dados e metas">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="card-surface space-y-4 p-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="weight">Peso atual (kg)</Label>
-              <Input id="weight" inputMode="decimal" required value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="72" />
+              <Label htmlFor="p-weight">Peso atual (kg)</Label>
+              <Input id="p-weight" inputMode="decimal" required value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="72" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="targetWeight">Peso alvo (kg)</Label>
-              <Input id="targetWeight" inputMode="decimal" value={targetWeight} onChange={(e) => setTargetWeight(e.target.value)} placeholder="65" />
+              <Label htmlFor="p-target">Peso alvo (kg)</Label>
+              <Input id="p-target" inputMode="decimal" value={targetWeight} onChange={(e) => setTargetWeight(e.target.value)} placeholder="65" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="height">Altura (cm)</Label>
-              <Input id="height" inputMode="numeric" required value={height} onChange={(e) => setHeight(e.target.value)} placeholder="170" />
+              <Label htmlFor="p-height">Altura (cm)</Label>
+              <Input id="p-height" inputMode="numeric" required value={height} onChange={(e) => setHeight(e.target.value)} placeholder="170" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="age">Idade (anos)</Label>
-              <Input id="age" inputMode="numeric" required value={age} onChange={(e) => setAge(e.target.value)} placeholder="32" />
+              <Label htmlFor="p-age">Idade (anos)</Label>
+              <Input id="p-age" inputMode="numeric" required value={age} onChange={(e) => setAge(e.target.value)} placeholder="32" />
             </div>
           </div>
 
@@ -164,20 +136,18 @@ function OnboardingPage() {
 
         {preview ? (
           <div className="card-surface space-y-2 p-4">
-            <h2 className="font-display text-base font-semibold">Prévia das suas metas</h2>
-            <p className="text-sm text-muted-foreground">TMB (gasto em repouso): <strong className="text-foreground">{preview.bmr} kcal</strong></p>
-            <p className="text-sm text-muted-foreground">Gasto total estimado: <strong className="text-foreground">{preview.tdee} kcal</strong></p>
-            <p className="text-sm text-muted-foreground">Meta para emagrecer: <strong className="text-primary">{preview.calorieGoal} kcal</strong> (−500)</p>
+            <h2 className="font-display text-base font-semibold">Novas metas calculadas</h2>
+            <p className="text-sm text-muted-foreground">TMB: <strong className="text-foreground">{preview.bmr} kcal</strong></p>
+            <p className="text-sm text-muted-foreground">Gasto total: <strong className="text-foreground">{preview.tdee} kcal</strong></p>
+            <p className="text-sm text-muted-foreground">Meta diária: <strong className="text-primary">{preview.calorieGoal} kcal</strong> (−500)</p>
             <p className="text-sm text-muted-foreground">Água: <strong className="text-foreground">{(preview.waterGoalMl / 1000).toFixed(1)} L</strong></p>
           </div>
         ) : null}
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-        <Button type="submit" size="lg" className="w-full" disabled={!preview || saving}>
-          {saving ? "Salvando..." : "Começar"}
+        <Button type="submit" size="lg" className="w-full" disabled={!preview || updateProfile.isPending}>
+          {saved ? "Salvo!" : updateProfile.isPending ? "Salvando..." : "Salvar alterações"}
         </Button>
       </form>
-    </div>
+    </AppShell>
   );
 }

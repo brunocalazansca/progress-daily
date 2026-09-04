@@ -14,7 +14,6 @@ const toneClasses: Record<MacroBarProps["tone"], string> = {
   primary: "bg-primary",
 };
 
-/** Barra horizontal de progresso para macros, água e micros. */
 export function MacroBar({ label, value, goal, unit = "g", tone }: MacroBarProps) {
   const percent = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
   const remaining = Math.max(0, goal - value);

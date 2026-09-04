@@ -1,11 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { buildNutritionPlan, type ActivityLevel, type BiologicalSex, type NutritionPlan } from "@/lib/nutrition";
+import {
+  buildNutritionPlan,
+  type ActivityLevel,
+  type BiologicalSex,
+  type NutritionPlan,
+} from "@/lib/nutrition";
 
 export interface Profile {
   id: string;
   display_name: string | null;
   weight_kg: number | null;
+  target_weight_kg: number | null;
   height_cm: number | null;
   age_years: number | null;
   biological_sex: BiologicalSex | null;
@@ -28,7 +34,6 @@ export interface FoodEntry {
   sodium_mg: number;
 }
 
-/** Data local no formato YYYY-MM-DD (dia do usuário, não UTC). */
 export function todayKey(): string {
   const now = new Date();
   return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -41,7 +46,9 @@ export function useProfile(userId?: string) {
     queryFn: async (): Promise<Profile | null> => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, display_name, weight_kg, height_cm, age_years, biological_sex, activity_level, onboarded")
+        .select(
+          "id, display_name, weight_kg, target_weight_kg, height_cm, age_years, biological_sex, activity_level, onboarded",
+        )
         .eq("id", userId!)
         .maybeSingle();
       if (error) throw error;
@@ -50,9 +57,14 @@ export function useProfile(userId?: string) {
   });
 }
 
-/** Plano nutricional derivado do perfil (null enquanto o onboarding não terminar). */
 export function planFromProfile(profile?: Profile | null): NutritionPlan | null {
-  if (!profile?.weight_kg || !profile.height_cm || !profile.age_years || !profile.biological_sex || !profile.activity_level) {
+  if (
+    !profile?.weight_kg ||
+    !profile.height_cm ||
+    !profile.age_years ||
+    !profile.biological_sex ||
+    !profile.activity_level
+  ) {
     return null;
   }
   return buildNutritionPlan({
@@ -71,7 +83,9 @@ export function useFoodEntries(userId?: string, date = todayKey()) {
     queryFn: async (): Promise<FoodEntry[]> => {
       const { data, error } = await supabase
         .from("food_entries")
-        .select("id, meal, food_name, grams, calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg")
+        .select(
+          "id, meal, food_name, grams, calories, protein_g, carbs_g, fat_g, fiber_g, sodium_mg",
+        )
         .eq("user_id", userId!)
         .eq("log_date", date)
         .order("created_at", { ascending: true });
@@ -155,7 +169,29 @@ export function useDeleteFoodEntry(userId?: string, date = todayKey()) {
   });
 }
 
-/** Soma dos nutrientes consumidos no dia. */
+export interface ProfileUpdate {
+  weight_kg?: number;
+  target_weight_kg?: number;
+  height_cm?: number;
+  age_years?: number;
+  biological_sex?: BiologicalSex;
+  activity_level?: ActivityLevel;
+}
+
+export function useUpdateProfile(userId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: ProfileUpdate) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq("id", userId!);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profile", userId] }),
+  });
+}
+
 export function sumEntries(entries: FoodEntry[] = []) {
   return entries.reduce(
     (acc, entry) => ({

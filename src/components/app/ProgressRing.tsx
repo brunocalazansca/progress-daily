@@ -6,7 +6,6 @@ interface ProgressRingProps {
   size?: number;
 }
 
-/** Anel de progresso circular usando o token de cor primário. */
 export function ProgressRing({ value, goal, label, unit = "kcal", size = 168 }: ProgressRingProps) {
   const percent = goal > 0 ? Math.min(100, (value / goal) * 100) : 0;
   const stroke = 14;

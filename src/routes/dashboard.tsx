@@ -4,6 +4,7 @@ import { Droplets, Flame, Plus, Minus, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { ProgressRing } from "@/components/app/ProgressRing";
 import { MacroBar } from "@/components/app/MacroBar";
+import { WeightCheckInModal } from "@/components/app/WeightCheckInModal";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -14,6 +15,8 @@ import {
   useFoodEntries,
   useProfile,
   useWaterTotal,
+  useUpdateProfile,
+  todayKey,
 } from "@/hooks/useNutritionData";
 import { GLASS_ML } from "@/lib/nutrition";
 
@@ -31,6 +34,12 @@ export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
 });
 
+const LAST_ACCESS_KEY = "leve_last_access";
+
+function isPastSixAM(): boolean {
+  return new Date().getHours() >= 6;
+}
+
 function DashboardPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -39,6 +48,28 @@ function DashboardPage() {
   const { data: waterMl = 0 } = useWaterTotal(user?.id);
   const addWater = useAddWater(user?.id);
   const removeWater = useRemoveWater(user?.id);
+  const updateProfile = useUpdateProfile(user?.id);
+
+  const today = todayKey();
+  const lastAccess = typeof window !== "undefined" ? localStorage.getItem(LAST_ACCESS_KEY) : null;
+
+  const needsCheckIn = Boolean(
+    profile?.onboarded &&
+    lastAccess !== null &&
+    lastAccess !== today &&
+    isPastSixAM()
+  );
+
+  useEffect(() => {
+    if (profile?.onboarded && lastAccess === null) {
+      localStorage.setItem(LAST_ACCESS_KEY, today);
+    }
+  }, [profile?.onboarded, lastAccess, today]);
+
+  const handleCheckIn = async (newWeight: number) => {
+    await updateProfile.mutateAsync({ weight_kg: newWeight });
+    localStorage.setItem(LAST_ACCESS_KEY, today);
+  };
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/" });
@@ -68,6 +99,12 @@ function DashboardPage() {
       title={`Olá, ${(profile?.display_name ?? "").split(" ")[0] || "bem-vindo"}!`}
       subtitle="Seu progresso de hoje"
     >
+      {needsCheckIn && profile?.weight_kg ? (
+        <WeightCheckInModal
+          currentWeight={profile.weight_kg}
+          onConfirm={handleCheckIn}
+        />
+      ) : null}
       <section className="card-surface flex flex-col items-center gap-3 p-5">
         <ProgressRing value={totals.calories} goal={plan.calorieGoal} label="consumidas" />
         <p className="text-sm text-muted-foreground">
