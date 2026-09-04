@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Search, Trash2, Plus } from "lucide-react";
+import { Search, Trash2, Plus, Check } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { MacroBar } from "@/components/app/MacroBar";
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,8 @@ function DiaryPage() {
 
   const [meal, setMeal] = useState<MealType>("breakfast");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<FoodItem | null>(null);
-  const [grams, setGrams] = useState("100");
+  const [selectedItems, setSelectedItems] = useState<Array<{ food: FoodItem; grams: string }>>([]);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) void navigate({ to: "/" });
@@ -66,28 +66,51 @@ function DiaryPage() {
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
     if (query.trim().length < 2) return;
-    setSelected(null);
     search.mutate(query.trim());
   };
 
-  const handleAdd = async () => {
-    if (!selected) return;
-    const factor = (Number(grams) || 0) / 100;
-    await addEntry.mutateAsync({
-      meal,
-      food_name: selected.name,
-      grams: Number(grams) || 0,
-      calories: Math.round(selected.calories * factor),
-      protein_g: Math.round(selected.protein * factor * 10) / 10,
-      carbs_g: Math.round(selected.carbs * factor * 10) / 10,
-      fat_g: Math.round(selected.fat * factor * 10) / 10,
-      fiber_g: Math.round(selected.fiber * factor * 10) / 10,
-      sodium_mg: Math.round(selected.sodiumMg * factor),
+  const toggleSelection = (food: FoodItem) => {
+    setSelectedItems((prev) => {
+      const exists = prev.find((p) => p.food.id === food.id);
+      if (exists) {
+        return prev.filter((p) => p.food.id !== food.id);
+      }
+      return [...prev, { food, grams: "100" }];
     });
-    setSelected(null);
-    setQuery("");
-    setGrams("100");
-    search.reset();
+  };
+
+  const updateGrams = (id: string, newGrams: string) => {
+    setSelectedItems((prev) =>
+      prev.map((p) => (p.food.id === id ? { ...p, grams: newGrams } : p))
+    );
+  };
+
+  const handleAddAll = async () => {
+    if (selectedItems.length === 0) return;
+    setIsAdding(true);
+    try {
+      await Promise.all(
+        selectedItems.map(({ food, grams }) => {
+          const factor = (Number(grams) || 0) / 100;
+          return addEntry.mutateAsync({
+            meal,
+            food_name: food.name,
+            grams: Number(grams) || 0,
+            calories: Math.round(food.calories * factor),
+            protein_g: Math.round(food.protein * factor * 10) / 10,
+            carbs_g: Math.round(food.carbs * factor * 10) / 10,
+            fat_g: Math.round(food.fat * factor * 10) / 10,
+            fiber_g: Math.round(food.fiber * factor * 10) / 10,
+            sodium_mg: Math.round(food.sodiumMg * factor),
+          });
+        })
+      );
+      setSelectedItems([]);
+      setQuery("");
+      search.reset();
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -148,43 +171,69 @@ function DiaryPage() {
           <p className="text-sm text-muted-foreground">Nenhum alimento encontrado. Tente outro termo.</p>
         ) : null}
 
-        {!selected && search.data?.items.length ? (
+        {search.data?.items.length ? (
           <ul className="max-h-72 space-y-2 overflow-y-auto">
-            {search.data.items.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(item)}
-                  className="w-full rounded-xl border border-border px-3 py-2.5 text-left transition-colors hover:bg-secondary"
-                >
-                  <p className="text-sm font-medium">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.brand ? `${item.brand} · ` : ""}
-                    {item.calories} kcal · P {item.protein}g · C {item.carbs}g · G {item.fat}g (100 g)
-                  </p>
-                </button>
-              </li>
-            ))}
+            {search.data.items.map((item) => {
+              const isSelected = selectedItems.some((s) => s.food.id === item.id);
+              return (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleSelection(item)}
+                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-secondary ${
+                      isSelected ? "border-primary bg-secondary/50" : "border-border"
+                    }`}
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.brand ? `${item.brand} · ` : ""}
+                        {item.calories} kcal · P {item.protein}g · C {item.carbs}g · G {item.fat}g (100 g)
+                      </p>
+                    </div>
+                    {isSelected ? <Check className="size-4 text-primary shrink-0" /> : null}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
 
-        {selected ? (
-          <div className="space-y-3 rounded-xl border border-primary/40 bg-secondary/50 p-3">
-            <p className="text-sm font-medium">{selected.name}</p>
-            <div className="flex items-end gap-2">
-              <div className="flex-1 space-y-1">
-                <label htmlFor="grams" className="text-xs text-muted-foreground">
-                  Quantidade (g)
-                </label>
-                <Input id="grams" inputMode="numeric" value={grams} onChange={(event) => setGrams(event.target.value)} />
-              </div>
-              <Button onClick={() => void handleAdd()} disabled={addEntry.isPending}>
-                <Plus className="size-4" /> Adicionar
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              ≈ {Math.round((selected.calories * (Number(grams) || 0)) / 100)} kcal nesta porção
-            </p>
+        {selectedItems.length > 0 ? (
+          <div className="space-y-3 rounded-xl border border-primary/40 bg-secondary/50 p-3 mt-4">
+            <h3 className="text-sm font-semibold">Itens selecionados ({selectedItems.length})</h3>
+            <ul className="space-y-3">
+              {selectedItems.map(({ food, grams }) => (
+                <li key={food.id} className="flex items-start justify-between gap-2">
+                  <div className="flex-1 space-y-1">
+                    <label className="text-sm font-medium">{food.name}</label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        className="h-8 w-20"
+                        inputMode="numeric"
+                        value={grams}
+                        onChange={(event) => updateGrams(food.id, event.target.value)}
+                      />
+                      <span className="text-xs text-muted-foreground">g</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ≈ {Math.round((food.calories * (Number(grams) || 0)) / 100)} kcal
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleSelection(food)}
+                    className="p-1.5 text-muted-foreground transition-colors hover:text-destructive shrink-0 mt-1"
+                    aria-label={`Remover ${food.name}`}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <Button onClick={() => void handleAddAll()} disabled={isAdding} className="w-full">
+              <Plus className="size-4 mr-2" /> Adicionar {selectedItems.length} {selectedItems.length === 1 ? "item" : "itens"}
+            </Button>
           </div>
         ) : null}
       </section>
@@ -203,7 +252,7 @@ function DiaryPage() {
             ) : (
               <ul className="mt-3 space-y-2">
                 {mealEntries.map((entry) => (
-                  <li key={entry.id} className="flex items-center justify-between gap-2">
+                  <li key={entry.id} className="flex items-center justify-between gap-2 rounded-xl bg-secondary/50 p-3">
                     <div>
                       <p className="text-sm font-medium">{entry.food_name}</p>
                       <p className="text-xs text-muted-foreground">
