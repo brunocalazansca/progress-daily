@@ -17,9 +17,9 @@ import {
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
-      { title: "Seus dados — Leve" },
+      { title: "Seus dados" },
       { name: "description", content: "Informe peso, altura, idade, sexo e atividade física para calcular suas metas diárias." },
-      { property: "og:title", content: "Seus dados — Leve" },
+      { property: "og:title", content: "Seus dados" },
       { property: "og:description", content: "Calculamos sua TMB e a meta de emagrecimento com déficit de 500 kcal." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

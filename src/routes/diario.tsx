@@ -21,9 +21,9 @@ import { searchFoods, type FoodItem } from "@/lib/food.functions";
 export const Route = createFileRoute("/diario")({
   head: () => ({
     meta: [
-      { title: "Diário alimentar — Leve" },
+      { title: "Diário alimentar" },
       { name: "description", content: "Registre café da manhã, almoço, jantar e lanches, com busca de alimentos e contagem de macros restantes." },
-      { property: "og:title", content: "Diário alimentar — Leve" },
+      { property: "og:title", content: "Diário alimentar" },
       { property: "og:description", content: "Busque alimentos reais e acompanhe calorias consumidas e restantes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

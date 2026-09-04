@@ -20,9 +20,9 @@ import { GLASS_ML } from "@/lib/nutrition";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Painel do dia — Leve" },
+      { title: "Painel do dia" },
       { name: "description", content: "Acompanhe calorias, macronutrientes, micronutrientes e hidratação do seu dia em um só lugar." },
-      { property: "og:title", content: "Painel do dia — Leve" },
+      { property: "og:title", content: "Painel do dia" },
       { property: "og:description", content: "Calorias restantes, macros, micros e copos de água em tempo real." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
